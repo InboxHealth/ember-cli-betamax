@@ -25,12 +25,10 @@ export default function(cassette){
 
   QUnit.done(function(){
     stopServer();
-    //if we are not in testem, download new casettes.
+    // if we are not in testem, download new casettes.
     if(QUnit.urlParams && QUnit.urlParams.record){
       betamaxRecorder.download();
+      debugger;
     }
   });
 }
-
-
-

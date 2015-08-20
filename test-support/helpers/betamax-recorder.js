@@ -27,9 +27,9 @@ function parseResponseHeaders(headerStr) {
 export default {
   setup: function() {
     var server = getServer();
-    server.responses.mapBy('url').forEach(function(response) {
-      allResponseUrls[response] = true;
-    });
+    // server.responses.mapBy('url').forEach(function(response) {
+    //   allResponseUrls[response] = true;
+    // });
 
     //listen to incoming xhr requests
     $( document ).ajaxSuccess(function( event, xhr, settings ) {
@@ -41,37 +41,64 @@ export default {
         status: xhr.status,
         headers: parseResponseHeaders(xhr.getAllResponseHeaders())
       };
-      //if response isn't in old or new cassettes, add it to new one
-      if(!allResponseUrls[url]) {
-        responses.push(newResponse);
-        allResponseUrls[newResponse.url] = true;
 
-        //ensure that if a request is added to new cassette, it 
-        //doesn't hit the server again
-        server.respondWith(
-          settings.type, newResponse.url,
-          [
-            newResponse.status,
-            newResponse.headers,
-            JSON.stringify(JSON.parse(newResponse.data))
-          ]
-        );
+      var key = url + ' ' + settings.type;
+
+      if(!responses[key]){
+        responses[key] = []
       }
+      responses[key].push(newResponse)
+
+      //if response isn't in old or new cassettes, add it to new one
+      // if(!allResponseUrls[url]) {
+      //   responses.push(newResponse);
+      //   allResponseUrls[newResponse.url] = true;
+      //
+      //   //ensure that if a request is added to new cassette, it
+      //   //doesn't hit the server again
+      //   // server.respondWith(
+      //   //   settings.type, newResponse.url,
+      //   //   [
+      //   //     newResponse.status,
+      //   //     newResponse.headers,
+      //   //     JSON.stringify(JSON.parse(newResponse.data))
+      //   //   ]
+      //   // );
+      // }
     });
   },
 
   download: function() {
     //convert responses into string expected by sinon
     strings.push("export default function(server) {\n\n");
-    if (responses.length > 0){
-      responses.forEach(function(response) {
-        strings.push("server.respondWith( '"+ response.type + "', \n");
-        strings.push("'" + response.url +  "',\n");
-        strings.push("  [\n " + response.status + ",\n");
-        strings.push(JSON.stringify(response.headers) + ",\n");
-        strings.push(JSON.stringify(JSON.stringify(JSON.parse(response.data))) + "\n");
-        strings.push("]);\n\n");
+    if (Object.keys(responses).length > 0){
+
+      Object.keys(responses).forEach(function(key, index) {
+        var rArray = responses[key];
+
+        strings.push("var stack" + index + "= [\n");
+        rArray.forEach(function(response){
+          strings.push("  [" + response.status + ",\n");
+          strings.push(JSON.stringify(response.headers) + ",\n");
+          strings.push(JSON.stringify(JSON.stringify(JSON.parse(response.data))) + "],\n");
+        });
+        strings.push("];\n");
+        strings.push("server.respondWith( '"+ rArray[0].type + "', \n");
+        strings.push("'" + rArray[0].url +  "',\n");
+        strings.push("function(request){\n");
+        strings.push("var r = stack" + index +".shift;\n");
+        strings.push("request.respond.apply(r);\n");
+        strings.push("});\n\n");
       });
+
+      // responses.forEach(function(response) {
+      //   strings.push("server.respondWith( '"+ response.type + "', \n");
+      //   strings.push("'" + response.url +  "',\n");
+      //   strings.push("  [\n " + response.status + ",\n");
+      //   strings.push(JSON.stringify(response.headers) + ",\n");
+      //   strings.push(JSON.stringify(JSON.stringify(JSON.parse(response.data))) + "\n");
+      //   strings.push("]);\n\n");
+      // });
 
       strings.push("}");
       //html 5 for downloading recordings
@@ -89,9 +116,8 @@ export default {
   },
 
   reset: function(){
-    responses = [];
+    // responses = [];
+    responses = {};
     strings = [];
   }
 };
-
-
