@@ -87,7 +87,7 @@ export default {
         strings.push("'" + rArray[0].url +  "',\n");
         strings.push("function(request){\n");
         strings.push("var r = stack" + index +".shift;\n");
-        strings.push("request.respond.apply(r);\n");
+        strings.push("request.respond.apply(this,r);\n");
         strings.push("});\n\n");
       });
 
